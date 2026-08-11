@@ -1,0 +1,29 @@
+# Streamlit runtime configuration. Port and address are supplied on the command
+# line at deploy time (Railway injects $PORT).
+
+[server]
+headless = true
+# Bound upload size. Keep in sync with MAX_UPLOAD_MB in streamlit_app.py, which
+# states the limit in the UI copy.
+maxUploadSize = 25
+# XSRF protection stays on, which keeps CORS restricted to the app's own origin -
+# correct behind a platform HTTPS proxy. Setting enableCORS = false here would be
+# silently overridden by Streamlit, so it is deliberately omitted.
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+# TEN Capital Network palette. Structural styling lives in
+# pitchdeck_onepager/web/theme.py; these are the tokens Streamlit's own widgets use.
+base = "dark"
+primaryColor = "#EE5A4E"
+backgroundColor = "#0B1526"
+secondaryBackgroundColor = "#16283F"
+textColor = "#F3F6FA"
+
+[client]
+# Never surface Python tracebacks on a public URL - details stay in the logs.
+showErrorDetails = "none"
+toolbarMode = "minimal"

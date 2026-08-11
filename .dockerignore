@@ -1,0 +1,19 @@
+# Secrets must never enter the image - set them as platform variables instead.
+.env
+
+# Local artefacts
+input/*
+output/*
+temp/*
+tests/
+.pytest_cache/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+.venv/
+venv/
+.git/
+.gitignore
+README.md
+docs/
+pytest.ini
