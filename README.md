@@ -158,9 +158,13 @@ Two things worth knowing before you deploy:
 - **Set `APP_PASSWORD`.** Without it, anyone with the URL can upload decks and
   spend your API credits. The app shows a warning banner when it detects a
   hosted environment with no password configured.
-- **Do not set `PORT`.** The platform injects it; the Dockerfile `CMD` binds
-  `$PORT` on `::` (dual-stack). Railway's internal network is IPv6-only, so a
-  `0.0.0.0` bind builds and starts fine but fails every health check.
+- **Do not set `PORT`.** The platform injects it; the start command binds
+  `${PORT:-8501}` on `::` (dual-stack). Railway's internal network is IPv6-only,
+  so a `0.0.0.0` bind builds and starts fine but fails every health check.
+- **`railway.json` owns the start command.** Railway's precedence runs dashboard
+  → `railway.json` → `Procfile` → Dockerfile `CMD`, so removing `startCommand`
+  falls through to the `Procfile`, not the Dockerfile. All four are kept in sync
+  and [tests/test_deployment.py](tests/test_deployment.py) asserts it.
 
 ---
 

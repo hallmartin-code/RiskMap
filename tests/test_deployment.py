@@ -9,6 +9,7 @@ would be baked into the image.
 from __future__ import annotations
 
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -64,23 +65,55 @@ def test_secrets_never_appear_in_the_redacted_config(monkeypatch) -> None:
 # --- Start command / port binding --------------------------------------------
 
 
-@pytest.mark.parametrize("filename", ["Procfile", "Dockerfile"])
-def test_start_command_binds_the_injected_port(filename: str) -> None:
-    content = _read(filename)
+def _start_commands() -> dict[str, str]:
+    """The actual start command each platform file declares.
 
-    assert "$PORT" in content, f"{filename} must bind the platform-injected $PORT"
+    Extracted rather than grepped over whole files: an earlier version of these
+    tests scanned raw file contents, so a `$PORT` mentioned in a *comment*
+    satisfied the assertion while the real command was wrong.
+    """
+    procfile = next(
+        line.split(":", 1)[1].strip()
+        for line in _read("Procfile").splitlines()
+        if line.startswith("web:")
+    )
+    dockerfile = next(
+        line[len("CMD ") :].strip()
+        for line in _read("Dockerfile").splitlines()
+        if line.startswith("CMD ")
+    )
+    railway = json.loads(_read("railway.json"))["deploy"]["startCommand"]
+    return {"Procfile": procfile, "Dockerfile": dockerfile, "railway.json": railway}
+
+
+@pytest.mark.parametrize("filename", ["Procfile", "Dockerfile", "railway.json"])
+def test_start_command_binds_the_injected_port(filename: str) -> None:
+    command = _start_commands()[filename]
+
+    # Braced form only. Railway does not shell-expand every start command path -
+    # a bare `$PORT` reached Streamlit as a literal and it exited with
+    # "'$PORT' is not a valid integer". `${PORT:-8501}` still needs a shell, so
+    # the Procfile wraps itself in `sh -c`.
+    assert "${PORT:-8501}" in command, f"{filename} must use the braced, defaulted port"
+    assert not re.search(r"\$PORT\b", command), f"{filename} has an unbraced $PORT"
+
     # `::` and not `0.0.0.0`: Railway runs its health check over an IPv6-only
     # internal network, and an IPv4 bind makes every attempt fail with "service
     # unavailable" on a container that started perfectly. A `::` socket on Linux
     # accepts IPv4 as well, so this loses nothing.
-    assert "--server.address=::" in content, f"{filename} must bind dual-stack"
-    assert "--server.address=0.0.0.0" not in content, f"{filename} must not bind IPv4-only"
+    assert "--server.address=::" in command, f"{filename} must bind dual-stack"
+    assert "--server.address=0.0.0.0" not in command, f"{filename} must not bind IPv4-only"
+
+
+def test_procfile_forces_a_shell_so_the_port_expands() -> None:
+    """Platforms that exec the Procfile directly would not expand ${PORT}."""
+    assert _start_commands()["Procfile"].startswith("sh -c ")
 
 
 def test_no_hard_coded_port_in_start_commands() -> None:
     """A literal port would make the platform's health check fail."""
-    for filename in ("Procfile", "Dockerfile"):
-        assert "--server.port=8501" not in _read(filename)
+    for filename, command in _start_commands().items():
+        assert "--server.port=8501" not in command, filename
 
 
 def test_railway_config_is_valid_and_points_at_the_real_health_endpoint() -> None:
@@ -88,9 +121,9 @@ def test_railway_config_is_valid_and_points_at_the_real_health_endpoint() -> Non
 
     assert config["build"]["builder"] == "DOCKERFILE"
     assert config["deploy"]["healthcheckPath"] == HEALTH_PATH
-    # No startCommand: it would override the Dockerfile CMD, and a stale copy
-    # there is what silently reintroduces the IPv4-only bind.
-    assert "startCommand" not in config["deploy"]
+    # An explicit startCommand is required, not optional: with it absent Railway
+    # falls back to the Procfile rather than the Dockerfile CMD.
+    assert config["deploy"]["startCommand"].startswith("python -m streamlit run streamlit_app.py")
 
 
 def test_dockerfile_runs_as_a_non_root_user() -> None:

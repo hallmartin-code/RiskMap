@@ -128,7 +128,9 @@ clear message rather than failing silently.
 | Symptom | Cause / fix |
 |---|---|
 | Build fails on `pip install` | Check the build log for the failing wheel. All dependencies have manylinux wheels for Python 3.11; a pinned older version may not |
-| Health check retries then "1/1 replicas never became healthy" | The container is up but unreachable on the probed address. The start command must bind `$PORT` on `::`, not `0.0.0.0` — Railway's internal network, which the health check uses, is IPv6-only and `0.0.0.0` binds IPv4 only. The `Dockerfile` `CMD` does this; do not re-add a `startCommand` to `railway.json` that overrides it |
+| Health check retries then "1/1 replicas never became healthy" | The container is up but unreachable on the probed address. The start command must bind on `::`, not `0.0.0.0` — Railway's internal network, which the health check uses, is IPv6-only and `0.0.0.0` binds IPv4 only |
+| `'$PORT' is not a valid integer` at container start | The start command reached Streamlit without being shell-expanded. Use the braced `${PORT:-8501}`, and keep the `sh -c` wrapper in the `Procfile` — Railway execs that file directly rather than through a shell |
+| Start command changes appear to have no effect | Precedence is: a start command set in the Railway dashboard, then `railway.json`'s `startCommand`, then the `Procfile`, then the `Dockerfile` `CMD`. Removing `startCommand` from `railway.json` does **not** fall through to the `Dockerfile` — it falls through to the `Procfile`. Keep `startCommand` set, and check the dashboard field is empty |
 | "Application failed to respond" | The container is listening on the wrong port. Do not hard-code `8501` in the start command, and do not set a `PORT` variable yourself |
 | Container exits immediately with a `PermissionError` under `~/.streamlit` | `HOME` is not following `USER`. The `Dockerfile` sets `ENV HOME=/home/appuser` after `USER appuser`; if you changed the user, set `HOME` to match |
 | `ANTHROPIC_API_KEY is not set` in the UI | The variable is missing on the service, or was added to a different service/environment. Redeploy after adding |

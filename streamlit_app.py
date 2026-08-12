@@ -8,7 +8,7 @@ Local::
 
 Deployed (Railway injects ``$PORT``)::
 
-    streamlit run streamlit_app.py --server.port=$PORT --server.address=0.0.0.0
+    streamlit run streamlit_app.py --server.port=${PORT:-8501} --server.address=::
 
 The uploaded deck is written to a temporary file, processed, and removed again.
 Deck text is sent to the configured LLM provider; nothing else leaves the host.

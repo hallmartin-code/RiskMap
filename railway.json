@@ -5,6 +5,7 @@
     "dockerfilePath": "Dockerfile"
   },
   "deploy": {
+    "startCommand": "python -m streamlit run streamlit_app.py --server.port=${PORT:-8501} --server.address=::",
     "healthcheckPath": "/_stcore/health",
     "healthcheckTimeout": 300,
     "restartPolicyType": "ON_FAILURE",
