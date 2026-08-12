@@ -62,8 +62,9 @@ and no deck is ever pushed.
    443 port to the container's `$PORT` automatically.
 
 The first build takes a few minutes. Deploy logs should end with
-`Uvicorn server started on 0.0.0.0:<PORT>`, and the health check turns green
-once `/_stcore/health` returns `ok`.
+`Uvicorn server started on :::<PORT>`, and the health check turns green
+once `/_stcore/health` returns `ok`. The `:::` is a dual-stack bind and is
+expected — see the health check row in Troubleshooting.
 
 ---
 
@@ -127,8 +128,9 @@ clear message rather than failing silently.
 | Symptom | Cause / fix |
 |---|---|
 | Build fails on `pip install` | Check the build log for the failing wheel. All dependencies have manylinux wheels for Python 3.11; a pinned older version may not |
-| Health check never turns green | The start command must bind `$PORT` and `0.0.0.0`. `railway.json` does this; if you overrode the start command, restore it |
+| Health check retries then "1/1 replicas never became healthy" | The container is up but unreachable on the probed address. The start command must bind `$PORT` on `::`, not `0.0.0.0` — Railway's internal network, which the health check uses, is IPv6-only and `0.0.0.0` binds IPv4 only. The `Dockerfile` `CMD` does this; do not re-add a `startCommand` to `railway.json` that overrides it |
 | "Application failed to respond" | The container is listening on the wrong port. Do not hard-code `8501` in the start command, and do not set a `PORT` variable yourself |
+| Container exits immediately with a `PermissionError` under `~/.streamlit` | `HOME` is not following `USER`. The `Dockerfile` sets `ENV HOME=/home/appuser` after `USER appuser`; if you changed the user, set `HOME` to match |
 | `ANTHROPIC_API_KEY is not set` in the UI | The variable is missing on the service, or was added to a different service/environment. Redeploy after adding |
 | 401 from Anthropic | Key revoked, or from a workspace with no credit. Create a new key in the Console |
 | File upload silently fails | Rare proxy interaction with XSRF. Add `enableXsrfProtection = false` under `[server]` in `.streamlit/config.toml` and redeploy — this weakens CSRF protection, so pair it with `APP_PASSWORD` |

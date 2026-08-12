@@ -64,17 +64,22 @@ def test_secrets_never_appear_in_the_redacted_config(monkeypatch) -> None:
 # --- Start command / port binding --------------------------------------------
 
 
-@pytest.mark.parametrize("filename", ["Procfile", "railway.json", "Dockerfile"])
+@pytest.mark.parametrize("filename", ["Procfile", "Dockerfile"])
 def test_start_command_binds_the_injected_port(filename: str) -> None:
     content = _read(filename)
 
     assert "$PORT" in content, f"{filename} must bind the platform-injected $PORT"
-    assert "--server.address=0.0.0.0" in content, f"{filename} must bind all interfaces"
+    # `::` and not `0.0.0.0`: Railway runs its health check over an IPv6-only
+    # internal network, and an IPv4 bind makes every attempt fail with "service
+    # unavailable" on a container that started perfectly. A `::` socket on Linux
+    # accepts IPv4 as well, so this loses nothing.
+    assert "--server.address=::" in content, f"{filename} must bind dual-stack"
+    assert "--server.address=0.0.0.0" not in content, f"{filename} must not bind IPv4-only"
 
 
 def test_no_hard_coded_port_in_start_commands() -> None:
     """A literal port would make the platform's health check fail."""
-    for filename in ("Procfile", "railway.json"):
+    for filename in ("Procfile", "Dockerfile"):
         assert "--server.port=8501" not in _read(filename)
 
 
@@ -83,7 +88,9 @@ def test_railway_config_is_valid_and_points_at_the_real_health_endpoint() -> Non
 
     assert config["build"]["builder"] == "DOCKERFILE"
     assert config["deploy"]["healthcheckPath"] == HEALTH_PATH
-    assert config["deploy"]["startCommand"].startswith("python -m streamlit run streamlit_app.py")
+    # No startCommand: it would override the Dockerfile CMD, and a stale copy
+    # there is what silently reintroduces the IPv4-only bind.
+    assert "startCommand" not in config["deploy"]
 
 
 def test_dockerfile_runs_as_a_non_root_user() -> None:
@@ -91,6 +98,17 @@ def test_dockerfile_runs_as_a_non_root_user() -> None:
 
     assert "USER appuser" in dockerfile
     assert dockerfile.index("USER appuser") < dockerfile.index("CMD "), "USER must precede CMD"
+
+
+def test_dockerfile_gives_the_non_root_user_a_writable_home() -> None:
+    """Docker does not move HOME when USER changes.
+
+    Left at /root, Streamlit dies creating ~/.streamlit before it binds a port.
+    """
+    dockerfile = _read("Dockerfile")
+
+    assert "ENV HOME=/home/appuser" in dockerfile
+    assert dockerfile.index("USER appuser") < dockerfile.index("ENV HOME=")
 
 
 # --- Image hygiene ------------------------------------------------------------
