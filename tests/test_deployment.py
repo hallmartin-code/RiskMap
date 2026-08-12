@@ -105,9 +105,14 @@ def test_start_command_binds_the_injected_port(filename: str) -> None:
     assert "--server.address=0.0.0.0" not in command, f"{filename} must not bind IPv4-only"
 
 
-def test_procfile_forces_a_shell_so_the_port_expands() -> None:
-    """Platforms that exec the Procfile directly would not expand ${PORT}."""
-    assert _start_commands()["Procfile"].startswith("sh -c ")
+@pytest.mark.parametrize("filename", ["Procfile", "railway.json"])
+def test_start_command_forces_a_shell_so_the_port_expands(filename: str) -> None:
+    """Railway execs these directly; without `sh -c` ${PORT} stays literal.
+
+    This is the failure that produced "'$PORT' is not a valid integer" - the
+    Dockerfile CMD is shell form already, but neither of these two is.
+    """
+    assert _start_commands()[filename].startswith("sh -c ")
 
 
 def test_no_hard_coded_port_in_start_commands() -> None:
@@ -123,7 +128,7 @@ def test_railway_config_is_valid_and_points_at_the_real_health_endpoint() -> Non
     assert config["deploy"]["healthcheckPath"] == HEALTH_PATH
     # An explicit startCommand is required, not optional: with it absent Railway
     # falls back to the Procfile rather than the Dockerfile CMD.
-    assert config["deploy"]["startCommand"].startswith("python -m streamlit run streamlit_app.py")
+    assert "streamlit run streamlit_app.py" in config["deploy"]["startCommand"]
 
 
 def test_dockerfile_runs_as_a_non_root_user() -> None:

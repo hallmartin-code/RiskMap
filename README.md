@@ -163,7 +163,9 @@ Two things worth knowing before you deploy:
   so a `0.0.0.0` bind builds and starts fine but fails every health check.
 - **`railway.json` owns the start command.** Railway's precedence runs dashboard
   → `railway.json` → `Procfile` → Dockerfile `CMD`, so removing `startCommand`
-  falls through to the `Procfile`, not the Dockerfile. All four are kept in sync
+  falls through to the `Procfile`, not the Dockerfile. Railway execs the first
+  two directly rather than via a shell, so both wrap themselves in `sh -c '…'`
+  or `${PORT}` reaches Streamlit as a literal string. All three are kept in sync
   and [tests/test_deployment.py](tests/test_deployment.py) asserts it.
 
 ---
