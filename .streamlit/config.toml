@@ -10,6 +10,9 @@ maxUploadSize = 25
 # correct behind a platform HTTPS proxy. Setting enableCORS = false here would be
 # silently overridden by Streamlit, so it is deliberately omitted.
 enableXsrfProtection = true
+# Serve ./static at /app/static/ - that is where the brand mark used for the
+# favicon and the header lockup lives.
+enableStaticServing = true
 
 [browser]
 gatherUsageStats = false

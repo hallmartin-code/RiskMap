@@ -26,6 +26,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY pitchdeck_onepager/ ./pitchdeck_onepager/
 COPY templates/ ./templates/
+COPY static/ ./static/
 COPY streamlit_app.py cli.py ./
 COPY .streamlit/ ./.streamlit/
 

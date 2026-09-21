@@ -33,6 +33,7 @@ from pitchdeck_onepager.config import AppConfig, is_hosted_environment
 from pitchdeck_onepager.errors import PitchDeckError
 from pitchdeck_onepager.pipeline import generate_onepager
 from pitchdeck_onepager.web.theme import (
+    BRAND_MARK_PATH,
     band_color,
     inject_theme,
     render_brand,
@@ -48,7 +49,9 @@ ACCEPTED_TYPES = ["pdf", "pptx", "ppt"]
 
 st.set_page_config(
     page_title="TEN Capital Network - Deck to One-Pager",
-    page_icon="📄",
+    # The brand mark doubles as the favicon. Fall back to an emoji if the asset
+    # is missing, since a bad icon path aborts the whole page.
+    page_icon=str(BRAND_MARK_PATH) if BRAND_MARK_PATH.is_file() else "📄",
     layout="centered",
     initial_sidebar_state="collapsed",
 )

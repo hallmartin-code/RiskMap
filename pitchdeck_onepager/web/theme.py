@@ -17,6 +17,10 @@ the default widget appearance rather than breaking if Streamlit changes them.
 
 from __future__ import annotations
 
+from base64 import b64encode
+from functools import lru_cache
+from pathlib import Path
+
 import streamlit as st
 
 #: Design tokens, kept in one place so the palette can be retuned centrally.
@@ -35,18 +39,29 @@ BRAND = {
     "ink_600": "#5C6E86",
 }
 
-#: The three-figure mark, inlined so the app has no external image dependency.
-BRAND_MARK_SVG = """
-<svg class="tc-mark" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <path d="M50 6 C64 6 74 16 74 16" stroke="#F3A22A" stroke-width="11" stroke-linecap="round" fill="none"/>
-  <path d="M76 66 C76 82 63 92 63 92" stroke="#35BEBB" stroke-width="11" stroke-linecap="round" fill="none"/>
-  <path d="M24 66 C24 82 37 92 37 92" stroke="#EE5A4E" stroke-width="11" stroke-linecap="round"
-        fill="none" transform="rotate(180 50 79)"/>
-  <circle cx="50" cy="20" r="11" fill="#F3A22A"/>
-  <circle cx="78" cy="68" r="11" fill="#35BEBB"/>
-  <circle cx="22" cy="68" r="11" fill="#EE5A4E"/>
-</svg>
-"""
+#: Browser-facing assets. Streamlit serves this directory at ``/app/static/``
+#: when ``server.enableStaticServing`` is on (see ``.streamlit/config.toml``).
+STATIC_DIR = Path(__file__).resolve().parents[2] / "static"
+
+#: The official three-figure mark. Also the favicon - see ``streamlit_app.py``.
+BRAND_MARK_PATH = STATIC_DIR / "ten-capital-mark.png"
+
+
+@lru_cache(maxsize=1)
+def brand_mark_data_uri() -> str:
+    """The mark as an inline ``data:`` URI, or ``""`` if the file is missing.
+
+    Inlined rather than linked so the lockup neither depends on static file
+    serving being enabled nor flashes empty while the image loads. The file is
+    small enough (~7 KB) that the extra markup costs nothing noticeable, and a
+    missing file drops the mark from the lockup rather than breaking the page.
+    """
+    try:
+        encoded = b64encode(BRAND_MARK_PATH.read_bytes()).decode("ascii")
+    except OSError:
+        return ""
+    return f"data:image/png;base64,{encoded}"
+
 
 _CSS = """
 <style>
@@ -86,7 +101,7 @@ _CSS = """
 /* ---- Brand lockup ------------------------------------------------------ */
 
 .tc-brand{ display:flex; align-items:center; gap:12px; margin:0 0 26px; padding-left:4px; }
-.tc-mark{ width:34px; height:34px; flex-shrink:0; }
+.tc-mark{ width:34px; height:34px; flex-shrink:0; display:block; }
 .tc-word{
   font-family:'Sora', sans-serif; font-weight:800; font-size:15px;
   letter-spacing:.04em; line-height:1.15; color:var(--ink-100); text-transform:uppercase;
@@ -313,8 +328,14 @@ def inject_theme() -> None:
 
 def render_brand() -> None:
     """Brand lockup above the card."""
+    mark = brand_mark_data_uri()
+    mark_html = (
+        f'<img class="tc-mark" src="{mark}" alt="TEN Capital Network" width="34" height="34"/>'
+        if mark
+        else ""
+    )
     st.markdown(
-        f'<div class="tc-brand">{BRAND_MARK_SVG}'
+        f'<div class="tc-brand">{mark_html}'
         '<div class="tc-word">Ten Capital<span>Network</span></div></div>',
         unsafe_allow_html=True,
     )
