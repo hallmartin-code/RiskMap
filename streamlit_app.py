@@ -131,7 +131,7 @@ render_brand()
 
 with st.container(key="tc_card"):
     render_hero(
-        eyebrow="Deck Analyzer",
+        eyebrow="Risk Map",
         lede=(
             "Upload a pitch deck and get a polished single-page investor PDF, "
             "analyzed and structured by Claude."
